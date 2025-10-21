@@ -159,6 +159,7 @@ const App: React.FC = () => {
     <div className="app-container">
       <header>
         <h1>Friendly MBBS AI</h1>
+        <p className="creator">A Chaithanya Renigunta Creation</p>
       </header>
       <div className="chat-window" ref={chatWindowRef}>
         {messages.map((msg, index) => (

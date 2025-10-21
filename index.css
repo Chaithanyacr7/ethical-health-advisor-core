@@ -51,6 +51,15 @@ header {
 header h1 {
   font-size: 1.5rem;
   font-weight: 500;
+  line-height: 1.2;
+}
+
+header .creator {
+  font-size: 0.75rem;
+  font-weight: 400;
+  margin-top: 4px;
+  opacity: 0.85;
+  letter-spacing: 0.5px;
 }
 
 .chat-window {
