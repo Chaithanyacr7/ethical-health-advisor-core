@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Modality } from '@google/genai';
 
 // The user has provided the system instructions. We'll use this when we integrate with the Gemini API.
 const SYSTEM_INSTRUCTIONS = `
@@ -63,8 +63,11 @@ The content provided by *Friendly MBBS AI* is for general knowledge, information
 `;
 
 interface Message {
+  id: string;
   sender: 'user' | 'ai';
   text: string;
+  imageUrl?: string;
+  fileName?: string;
 }
 
 const translations = {
@@ -72,19 +75,53 @@ const translations = {
     title: 'Friendly MBBS AI',
     creator: 'A Chaithanya Renigunta Creation',
     placeholder: 'Ask me a health-related question...',
-    attachTitle: 'Attach file (coming soon)',
-    cameraTitle: 'Use camera (coming soon)',
-    micTitle: 'Use microphone (coming soon)',
-    initialMessage: `[Wellness Guide]\n\nHello! I am Friendly MBBS AI, your health and wellness advisor. How can I assist you today? Please remember, I am an AI and not a real doctor.\n\n*Full Disclaimer A: WELLNESS ADVISORY*\nThe content provided by *Friendly MBBS AI* is for general knowledge, informational, and educational purposes only. It is not medical advice. *Always seek the guidance of a licensed medical professional for personalized diagnosis and treatment.*`
+    placeholderRecording: 'Recording... Speak now.',
+    placeholderTranscribing: 'Transcribing audio...',
+    attachTitle: 'Attach PDF file',
+    attachTitleRemove: 'Remove attached file',
+    cameraTitle: 'Use camera',
+    cameraTitleRemove: 'Remove attached image',
+    micTitleStart: 'Start recording',
+    micTitleStop: 'Stop recording',
+    micTitleTranscribing: 'Transcribing... please wait',
+    playAudioTitle: 'Play audio',
+    stopAudioTitle: 'Stop audio',
+    generatingAudioTitle: 'Generating audio...',
+    initialMessage: `[Wellness Guide]\n\nHello! I am Friendly MBBS AI, your health and wellness advisor. How can I assist you today? Please remember, I am an AI and not a real doctor.\n\n*Full Disclaimer A: WELLNESS ADVISORY*\nThe content provided by *Friendly MBBS AI* is for general knowledge, informational, and educational purposes only. It is not medical advice. *Always seek the guidance of a licensed medical professional for personalized diagnosis and treatment.*`,
+    errorMicPermission: "Microphone access denied. Please enable it in your browser settings to use this feature.",
+    errorMicAccess: "Could not access the microphone. Ensure it's connected and not in use by another app.",
+    errorTranscription: "Transcription failed. Please check your internet and try again.",
+    errorCameraPermission: "Camera access denied. Please enable it in your browser settings to use this feature.",
+    errorCameraAccess: "Could not access the camera. Ensure it's connected and not in use by another app.",
+    errorAudioGeneration: "Failed to generate audio. Please check your connection and try again.",
+    errorApi: "An error occurred. Please check your connection or try again later.",
+    errorInvalidFile: "Invalid file type. Please select a PDF file.",
   },
   te: {
     title: 'స్నేహపూర్వక MBBS AI',
     creator: 'చైతన్య రేణిగుంట సృష్టి',
     placeholder: 'ఆరోగ్య సంబంధిత ప్రశ్న అడగండి...',
-    attachTitle: 'ఫైల్ జోడించండి (త్వరలో వస్తుంది)',
-    cameraTitle: 'కెమెరా వాడండి (త్వరలో వస్తుంది)',
-    micTitle: 'మైక్రోఫోన్ వాడండి (త్వరలో వస్తుంది)',
-    initialMessage: `[ఆరోగ్య మార్గదర్శి]\n\nనమస్కారం! నేను స్నేహపూర్వక MBBS AI, మీ ఆరోగ్య మరియు శ్రేయస్సు సలహాదారుని. ఈ రోజు నేను మీకు ఎలా సహాయపడగలను? దయచేసి గుర్తుంచుకోండి, నేను ఒక AI ని, నిజమైన వైద్యుడిని కాదు.\n\n*పూర్తి నిరాకరణ A: ఆరోగ్య సలహా*\n*స్నేహపూర్వక MBBS AI* అందించిన కంటెంట్ సాధారణ జ్ఞానం, సమాచారం మరియు విద్యా ప్రయోజనాల కోసం మాత్రమే. ఇది వైద్య సలహా కాదు. *వ్యక్తిగత నిర్ధారణ మరియు చికిత్స కోసం ఎల్లప్పుడూ లైసెన్స్ పొందిన వైద్య నిపుణుడి మార్గదర్శకత్వం తీసుకోండి.*`
+    placeholderRecording: 'రికార్డింగ్... ఇప్పుడు మాట్లాడండి.',
+    placeholderTranscribing: 'ఆడియోను ట్రాన్స్‌క్రయిబ్ చేస్తున్నాము...',
+    attachTitle: 'PDF ఫైల్ జోడించండి',
+    attachTitleRemove: 'జోడించిన ఫైల్‌ను తీసివేయండి',
+    cameraTitle: 'కెమెరా వాడండి',
+    cameraTitleRemove: 'జోడించిన చిత్రాన్ని తీసివేయండి',
+    micTitleStart: 'రికార్డింగ్ ప్రారంభించండి',
+    micTitleStop: 'రికార్డింగ్ ఆపండి',
+    micTitleTranscribing: 'ట్రాన్స్‌క్రయిబ్ చేస్తున్నాము... దయచేసి వేచి ఉండండి',
+    playAudioTitle: 'ఆడియో ప్లే చేయండి',
+    stopAudioTitle: 'ఆడియో ఆపండి',
+    generatingAudioTitle: 'ఆడియో జనరేట్ అవుతోంది...',
+    initialMessage: `[ఆరోగ్య మార్గదర్శి]\n\nనమస్కారం! నేను స్నేహపూర్వక MBBS AI, మీ ఆరోగ్య మరియు శ్రేయస్సు సలహాదారుని. ఈ రోజు నేను మీకు ఎలా సహాయపడగలను? దయచేసి గుర్తుంచుకోండి, నేను ఒక AI ని, నిజమైన వైద్యుడిని కాదు.\n\n*పూర్తి నిరాకరణ A: ఆరోగ్య సలహా*\n*స్నేహపూర్వక MBBS AI* అందించిన కంటెంట్ సాధారణ జ్ఞానం, సమాచారం మరియు విద్యా ప్రయోజనాల కోసం మాత్రమే. ఇది వైద్య సలహా కాదు. *వ్యక్తిగత నిర్ధారణ మరియు చికిత్స కోసం ఎల్లప్పుడూ లైసెన్స్ పొందిన వైద్య నిపుణుడి మార్గదర్శకత్వం తీసుకోండి.*`,
+    errorMicPermission: "మైక్రోఫోన్ యాక్సెస్ నిరాకరించబడింది. దయచేసి ఈ ఫీచర్‌ను ఉపయోగించడానికి మీ బ్రౌజర్ సెట్టింగ్‌లలో దీన్ని ప్రారంభించండి.",
+    errorMicAccess: "మైక్రోఫోన్‌ను యాక్సెస్ చేయడంలో విఫలమయ్యారు. అది కనెక్ట్ చేయబడిందని మరియు మరో యాప్ ఉపయోగించడం లేదని నిర్ధారించుకోండి.",
+    errorTranscription: "ట్రాన్స్‌క్రిప్షన్ విఫలమైంది. దయచేసి మీ ఇంటర్నెట్‌ను తనిఖీ చేసి, మళ్లీ ప్రయత్నించండి.",
+    errorCameraPermission: "కెమెరా యాక్సెస్ నిరాకరించబడింది. దయచేసి ఈ ఫీచర్‌ను ఉపయోగించడానికి మీ బ్రౌజర్ సెట్టింగ్‌లలో దీన్ని ప్రారంభించండి.",
+    errorCameraAccess: "కెమెరాను యాక్సెస్ చేయడంలో విఫలమయ్యారు. అది కనెక్ట్ చేయబడిందని మరియు మరో యాప్ ఉపయోగించడం లేదని నిర్ధారించుకోండి.",
+    errorAudioGeneration: "ఆడియోను జనరేట్ చేయడంలో విఫలమయ్యారు. దయచేసి మీ కనెక్షన్‌ను తనిఖీ చేసి, మళ్లీ ప్రయత్నించండి.",
+    errorApi: "ఒక లోపం సంభవించింది. దయచేసి మీ కనెక్షన్‌ను తనిఖీ చేయండి లేదా తర్వాత మళ్లీ ప్రయత్నించండి.",
+    errorInvalidFile: "చెల్లని ఫైల్ రకం. దయచేసి ఒక PDF ఫైల్‌ను ఎంచుకోండి.",
   }
 };
 
@@ -93,18 +130,77 @@ const getSystemInstructions = (lang: 'en' | 'te') => {
     return `${SYSTEM_INSTRUCTIONS}\n\nYou MUST respond in the language the user has selected. The current language is: ${langName}.`;
 }
 
+// Audio decoding helpers
+function decode(base64: string) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function decodeAudioData(
+  data: Uint8Array,
+  ctx: AudioContext,
+  sampleRate: number,
+  numChannels: number,
+): Promise<AudioBuffer> {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    }
+  }
+  return buffer;
+}
+
+const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+
 const App: React.FC = () => {
   const [language, setLanguage] = useState<'en' | 'te'>('en');
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
+  const [isGeneratingAudioId, setIsGeneratingAudioId] = useState<string | null>(null);
+  const [audioProgress, setAudioProgress] = useState<{ id: string; currentTime: number; duration: number } | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [imageForAnalysis, setImageForAnalysis] = useState<string | null>(null);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
   const chatWindowRef = useRef<HTMLDivElement>(null);
   const chatRef = useRef<any>(null); // To hold the chat instance
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const progressAnimationRef = useRef<number | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const currentLang = translations[language];
 
   useEffect(() => {
     setMessages([{
+      id: `ai-initial-${Date.now()}`,
       sender: 'ai',
-      text: translations[language].initialMessage
+      text: currentLang.initialMessage
     }]);
     chatRef.current = null; // Reset chat on language change
   }, [language]);
@@ -127,34 +223,81 @@ const App: React.FC = () => {
       });
     }
   };
+  
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = (reader.result as string).split(',')[1];
+        resolve(base64String);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
 
   const handleSend = async () => {
-    if (input.trim() === '' || isLoading) return;
+    if ((input.trim() === '' && !imageForAnalysis && !attachedFile) || isLoading) return;
 
-    const userMessage: Message = { sender: 'user', text: input };
+    const userMessageId = `user-${Date.now()}`;
+    const userMessage: Message = { 
+        id: userMessageId, 
+        sender: 'user', 
+        text: input,
+        imageUrl: imageForAnalysis || undefined,
+        fileName: attachedFile ? attachedFile.name : undefined
+    };
     setMessages(prev => [...prev, userMessage]);
+    
     const currentInput = input;
+    const currentImage = imageForAnalysis;
+    const currentFile = attachedFile;
+
     setInput('');
+    setImageForAnalysis(null);
+    setAttachedFile(null);
     setIsLoading(true);
+    setError(null);
     
     initializeChat();
 
     try {
       const chat = chatRef.current;
-      const responseStream = await chat.sendMessageStream({ message: currentInput });
+
+      const parts: any[] = [];
+      if (currentImage) {
+        const base64Data = currentImage.split(',')[1];
+        parts.push({ inlineData: { mimeType: 'image/jpeg', data: base64Data } });
+      }
+      if (currentFile) {
+        const base64Data = await blobToBase64(currentFile);
+        parts.push({ inlineData: { mimeType: currentFile.type, data: base64Data } });
+      }
+      if (currentInput.trim() !== '') {
+          parts.push({ text: currentInput });
+      } else {
+         // Add a placeholder text if only an image/file is sent
+         parts.push({ text: "Please analyze the attached content."});
+      }
+
+      const responseStream = await chat.sendMessageStream({ message: { parts } });
       
       let aiResponseText = '';
       let firstChunk = true;
+      const aiMessageId = `ai-${Date.now()}`;
       
       for await (const chunk of responseStream) {
         aiResponseText += chunk.text;
         if (firstChunk) {
-            setMessages(prev => [...prev, { sender: 'ai', text: aiResponseText }]);
+            setMessages(prev => [...prev, { id: aiMessageId, sender: 'ai', text: aiResponseText }]);
             firstChunk = false;
         } else {
              setMessages(prev => {
                 const newMessages = [...prev];
-                newMessages[newMessages.length - 1] = { sender: 'ai', text: aiResponseText };
+                const lastMessage = newMessages[newMessages.length - 1];
+                if (lastMessage.id === aiMessageId) {
+                  newMessages[newMessages.length - 1] = { ...lastMessage, text: aiResponseText };
+                }
                 return newMessages;
             });
         }
@@ -162,17 +305,11 @@ const App: React.FC = () => {
 
     } catch (error) {
       console.error(error);
-      const errorMessage = { sender: 'ai' as const, text: 'Sorry, I encountered an error. Please try again.' };
-       setMessages(prev => {
-            const newMessages = [...prev];
-            const lastMessage = newMessages[newMessages.length - 1];
-            if(lastMessage.sender === 'ai' && isLoading) {
-                newMessages[newMessages.length - 1] = errorMessage;
-            } else {
-                newMessages.push(errorMessage);
-            }
-            return newMessages;
-      });
+      setError(currentLang.errorApi);
+      setMessages(prev => prev.filter(msg => msg.id !== userMessageId));
+      setInput(currentInput);
+      setImageForAnalysis(currentImage);
+      setAttachedFile(currentFile);
     } finally {
       setIsLoading(false);
     }
@@ -184,8 +321,265 @@ const App: React.FC = () => {
       handleSend();
     }
   };
+
+  const handleMicClick = async () => {
+    setError(null);
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+    } else {
+      try {
+        audioStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setIsRecording(true);
+        audioChunksRef.current = [];
+        const mediaRecorder = new MediaRecorder(audioStreamRef.current);
+        mediaRecorderRef.current = mediaRecorder;
+        
+        mediaRecorder.ondataavailable = (event) => {
+          audioChunksRef.current.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          setIsRecording(false);
+          setIsTranscribing(true);
+
+          audioStreamRef.current?.getTracks().forEach(track => track.stop());
+
+          try {
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+            const base64Audio = await blobToBase64(audioBlob);
+
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const response = await ai.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: {
+                parts: [
+                  { inlineData: { mimeType: 'audio/webm', data: base64Audio } },
+                  { text: 'Transcribe this audio.' },
+                ],
+              },
+            });
+            setInput(response.text);
+          } catch(error) {
+            console.error("Transcription error:", error);
+            setError(currentLang.errorTranscription);
+          } finally {
+            setIsTranscribing(false);
+            audioChunksRef.current = [];
+          }
+        };
+
+        mediaRecorder.start();
+      } catch (err) {
+        console.error("Error accessing microphone:", err);
+        if (err instanceof DOMException && err.name === 'NotAllowedError') {
+          setError(currentLang.errorMicPermission);
+        } else {
+          setError(currentLang.errorMicAccess);
+        }
+      }
+    }
+  };
   
-  const currentLang = translations[language];
+  const handleStopAudio = () => {
+    if (progressAnimationRef.current) {
+      cancelAnimationFrame(progressAnimationRef.current);
+      progressAnimationRef.current = null;
+    }
+    if (audioSourceRef.current) {
+      audioSourceRef.current.stop();
+      audioSourceRef.current.disconnect();
+      audioSourceRef.current = null;
+    }
+    setCurrentlyPlayingId(null);
+    setAudioProgress(null);
+  };
+  
+  const handlePlayAudio = async (text: string, messageId: string) => {
+    setError(null);
+    if (currentlyPlayingId === messageId) {
+      handleStopAudio();
+      return;
+    }
+    handleStopAudio();
+  
+    setIsGeneratingAudioId(messageId);
+    setCurrentlyPlayingId(null);
+    setAudioProgress(null);
+  
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      }
+      const audioContext = audioContextRef.current;
+  
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const textToSpeak = text.split('*Full Disclaimer')[0];
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: textToSpeak }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
+        },
+      });
+  
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (!base64Audio) throw new Error("No audio data received.");
+  
+      const audioBytes = decode(base64Audio);
+      const audioBuffer = await decodeAudioData(audioBytes, audioContext, 24000, 1);
+  
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContext.destination);
+      audioSourceRef.current = source;
+  
+      const audioDuration = audioBuffer.duration;
+      const playbackStartTime = audioContext.currentTime;
+
+      const updateProgress = () => {
+        if (!audioSourceRef.current || !audioContextRef.current) return;
+        
+        const elapsedTime = audioContextRef.current.currentTime - playbackStartTime;
+        
+        if (elapsedTime >= audioDuration) {
+            setAudioProgress({ id: messageId, currentTime: audioDuration, duration: audioDuration });
+            // onended will handle the final cleanup
+            return;
+        }
+        
+        setAudioProgress({ id: messageId, currentTime: elapsedTime, duration: audioDuration });
+        progressAnimationRef.current = requestAnimationFrame(updateProgress);
+      };
+
+
+      source.onended = () => {
+        if (currentlyPlayingId === messageId) {
+          handleStopAudio();
+        }
+      };
+      
+      source.start();
+      setCurrentlyPlayingId(messageId);
+      progressAnimationRef.current = requestAnimationFrame(updateProgress);
+
+    } catch (error) {
+      console.error("Error generating or playing audio:", error);
+      setError(currentLang.errorAudioGeneration);
+      handleStopAudio();
+    } finally {
+      setIsGeneratingAudioId(null);
+    }
+  };
+
+  const handleCameraClick = async () => {
+    setError(null);
+    if (imageForAnalysis) {
+        setImageForAnalysis(null);
+        return;
+    }
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+        }
+        setIsCameraOpen(true);
+    } catch (err) {
+        console.error("Error accessing camera:", err);
+        if (err instanceof DOMException && err.name === 'NotAllowedError') {
+          setError(currentLang.errorCameraPermission);
+        } else {
+          setError(currentLang.errorCameraAccess);
+        }
+    }
+  };
+
+  const handleCloseCamera = () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach(track => track.stop());
+          videoRef.current.srcObject = null;
+      }
+      setIsCameraOpen(false);
+      setCapturedImage(null);
+  };
+
+  const handleCapturePhoto = () => {
+      if (videoRef.current && canvasRef.current) {
+          const video = videoRef.current;
+          const canvas = canvasRef.current;
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const context = canvas.getContext('2d');
+          if (context) {
+              context.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+              setCapturedImage(dataUrl);
+              if (video.srcObject) {
+                  const stream = video.srcObject as MediaStream;
+                  stream.getTracks().forEach(track => track.stop());
+              }
+          }
+      }
+  };
+
+  const handleRetakePhoto = async () => {
+      setCapturedImage(null);
+      try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+          }
+      } catch (err) {
+          console.error("Error restarting camera:", err);
+          setError(currentLang.errorCameraAccess);
+      }
+  };
+
+  const handleUsePhoto = () => {
+      if (capturedImage) {
+          setImageForAnalysis(capturedImage);
+      }
+      handleCloseCamera();
+  };
+  
+  const handleAttachClick = () => {
+      setError(null);
+      if (attachedFile) {
+          setAttachedFile(null);
+      } else {
+          fileInputRef.current?.click();
+      }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
+    const file = event.target.files?.[0];
+    if (file && file.type === 'application/pdf') {
+        setAttachedFile(file);
+    } else if (file) {
+        setError(currentLang.errorInvalidFile);
+    }
+    // Reset file input value to allow selecting the same file again
+    if (event.target) {
+        event.target.value = '';
+    }
+  };
+
+  let micTitle = currentLang.micTitleStart;
+  if (isRecording) micTitle = currentLang.micTitleStop;
+  if (isTranscribing) micTitle = currentLang.micTitleTranscribing;
+  
+  let placeholder = currentLang.placeholder;
+  if (isRecording) placeholder = currentLang.placeholderRecording;
+  if (isTranscribing) placeholder = currentLang.placeholderTranscribing;
+
+  const cameraTitle = imageForAnalysis ? currentLang.cameraTitleRemove : currentLang.cameraTitle;
+  const attachTitle = attachedFile ? currentLang.attachTitleRemove : currentLang.attachTitle;
 
   return (
     <div className="app-container">
@@ -198,10 +592,63 @@ const App: React.FC = () => {
           {language === 'en' ? 'తెలుగు' : 'English'}
         </button>
       </header>
+      {error && (
+        <div className="error-toast">
+            <p>{error}</p>
+            <button onClick={() => setError(null)} title="Close" aria-label="Close">
+                <span className="material-symbols-outlined">close</span>
+            </button>
+        </div>
+      )}
       <div className="chat-window" ref={chatWindowRef}>
-        {messages.map((msg, index) => (
-          <div key={index} className={`message ${msg.sender}`}>
+        {messages.map((msg) => (
+          <div key={msg.id} className={`message ${msg.sender}`}>
+             {msg.fileName && (
+                <div className="message-attachment">
+                    <span className="material-symbols-outlined">description</span>
+                    <span>{msg.fileName}</span>
+                </div>
+             )}
+             {msg.imageUrl && <img src={msg.imageUrl} alt="User attachment" className="message-image" />}
              <pre>{msg.text}</pre>
+             {msg.sender === 'ai' && audioProgress && audioProgress.id === msg.id && (
+                <div className="audio-progress-container">
+                    <div className="progress-time">
+                        {formatTime(audioProgress.currentTime)} / {formatTime(audioProgress.duration)}
+                    </div>
+                    <div className="progress-bar">
+                        <div 
+                            className="progress-bar-inner" 
+                            style={{ width: `${(audioProgress.currentTime / audioProgress.duration) * 100}%` }}
+                        ></div>
+                    </div>
+                </div>
+             )}
+             {msg.sender === 'ai' && !msg.text.includes('Sorry, I encountered an error') && (
+                <button
+                    className="icon-button speaker-button"
+                    onClick={() => handlePlayAudio(msg.text, msg.id)}
+                    disabled={isGeneratingAudioId !== null && isGeneratingAudioId !== msg.id}
+                    title={
+                        isGeneratingAudioId === msg.id ? currentLang.generatingAudioTitle :
+                        currentlyPlayingId === msg.id ? currentLang.stopAudioTitle :
+                        currentLang.playAudioTitle
+                    }
+                    aria-label={
+                        isGeneratingAudioId === msg.id ? currentLang.generatingAudioTitle :
+                        currentlyPlayingId === msg.id ? currentLang.stopAudioTitle :
+                        currentLang.playAudioTitle
+                    }
+                >
+                    {isGeneratingAudioId === msg.id ? (
+                        <div className="spinner"></div>
+                    ) : (
+                        <span className="material-symbols-outlined">
+                            {currentlyPlayingId === msg.id ? 'stop_circle' : 'volume_up'}
+                        </span>
+                    )}
+                </button>
+             )}
           </div>
         ))}
         {isLoading && messages[messages.length-1].sender === 'user' && (
@@ -214,32 +661,81 @@ const App: React.FC = () => {
             </div>
         )}
       </div>
-      <div className="input-area">
-        <button className="icon-button" disabled={isLoading} title={currentLang.attachTitle}>
-            <span className="material-symbols-outlined">attach_file</span>
-        </button>
-        <button className="icon-button" disabled={isLoading} title={currentLang.cameraTitle}>
-            <span className="material-symbols-outlined">photo_camera</span>
-        </button>
-        <button className="icon-button" disabled={isLoading} title={currentLang.micTitle}>
-            <span className="material-symbols-outlined">mic</span>
-        </button>
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder={currentLang.placeholder}
-          rows={1}
-          disabled={isLoading}
-        />
-        <button onClick={handleSend} disabled={isLoading || input.trim() === ''}>
-          <span className="material-symbols-outlined">send</span>
-        </button>
+      <div className="input-container">
+        {attachedFile && (
+            <div className="attachment-preview">
+                <span className="material-symbols-outlined">description</span>
+                <span>{attachedFile.name}</span>
+                <button onClick={() => { setAttachedFile(null); setError(null); }} title="Remove file" aria-label="Remove file">
+                    <span className="material-symbols-outlined">close</span>
+                </button>
+            </div>
+        )}
+        <div className="input-area">
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" style={{ display: 'none' }} />
+            <button 
+                onClick={handleAttachClick}
+                className={`icon-button ${attachedFile ? 'active' : ''}`}
+                disabled={isLoading || isRecording || isTranscribing}
+                title={attachTitle}
+            >
+                <span className="material-symbols-outlined">attach_file</span>
+            </button>
+            <button 
+              onClick={handleCameraClick}
+              className={`icon-button ${imageForAnalysis ? 'active' : ''}`}
+              disabled={isLoading || isRecording || isTranscribing}
+              title={cameraTitle}
+            >
+                <span className="material-symbols-outlined">photo_camera</span>
+            </button>
+            <button 
+              onClick={handleMicClick}
+              className={`icon-button ${isRecording ? 'recording' : ''}`} 
+              disabled={isLoading || isTranscribing} 
+              title={micTitle}
+            >
+              <span className="material-symbols-outlined">{isRecording ? 'stop' : 'mic'}</span>
+            </button>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder={placeholder}
+              rows={1}
+              disabled={isLoading || isRecording || isTranscribing}
+            />
+            <button onClick={handleSend} disabled={isLoading || isTranscribing || (input.trim() === '' && !imageForAnalysis && !attachedFile)}>
+              <span className="material-symbols-outlined">send</span>
+            </button>
+        </div>
       </div>
+      {isCameraOpen && (
+        <div className="camera-modal">
+            <div className="camera-modal-content">
+                {capturedImage ? (
+                    <img src={capturedImage} alt="Preview" className="camera-preview" />
+                ) : (
+                    <video ref={videoRef} autoPlay playsInline className="camera-video"></video>
+                )}
+                <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
+                <div className="camera-controls">
+                    {capturedImage ? (
+                        <>
+                            <button onClick={handleUsePhoto}>Use Photo</button>
+                            <button onClick={handleRetakePhoto} className="secondary">Retake</button>
+                        </>
+                    ) : (
+                        <button onClick={handleCapturePhoto}>Capture</button>
+                    )}
+                    <button onClick={handleCloseCamera} className="secondary">Close</button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 };
 
-const container = document.getElementById('root');
-const root = createRoot(container!);
+const root = createRoot(document.getElementById('root')!);
 root.render(<App />);
