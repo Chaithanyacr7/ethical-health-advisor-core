@@ -43,23 +43,42 @@ header {
   padding: 1rem;
   background-color: var(--primary-color);
   color: white;
-  text-align: center;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-header h1 {
+.header-content h1 {
   font-size: 1.5rem;
   font-weight: 500;
   line-height: 1.2;
 }
 
-header .creator {
+.header-content .creator {
   font-size: 0.75rem;
   font-weight: 400;
   margin-top: 4px;
   opacity: 0.85;
   letter-spacing: 0.5px;
+}
+
+.lang-toggle {
+  background-color: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.lang-toggle:hover {
+  background-color: white;
+  color: var(--primary-color);
 }
 
 .chat-window {

@@ -67,17 +67,47 @@ interface Message {
   text: string;
 }
 
+const translations = {
+  en: {
+    title: 'Friendly MBBS AI',
+    creator: 'A Chaithanya Renigunta Creation',
+    placeholder: 'Ask me a health-related question...',
+    attachTitle: 'Attach file (coming soon)',
+    cameraTitle: 'Use camera (coming soon)',
+    micTitle: 'Use microphone (coming soon)',
+    initialMessage: `[Wellness Guide]\n\nHello! I am Friendly MBBS AI, your health and wellness advisor. How can I assist you today? Please remember, I am an AI and not a real doctor.\n\n*Full Disclaimer A: WELLNESS ADVISORY*\nThe content provided by *Friendly MBBS AI* is for general knowledge, informational, and educational purposes only. It is not medical advice. *Always seek the guidance of a licensed medical professional for personalized diagnosis and treatment.*`
+  },
+  te: {
+    title: 'స్నేహపూర్వక MBBS AI',
+    creator: 'చైతన్య రేణిగుంట సృష్టి',
+    placeholder: 'ఆరోగ్య సంబంధిత ప్రశ్న అడగండి...',
+    attachTitle: 'ఫైల్ జోడించండి (త్వరలో వస్తుంది)',
+    cameraTitle: 'కెమెరా వాడండి (త్వరలో వస్తుంది)',
+    micTitle: 'మైక్రోఫోన్ వాడండి (త్వరలో వస్తుంది)',
+    initialMessage: `[ఆరోగ్య మార్గదర్శి]\n\nనమస్కారం! నేను స్నేహపూర్వక MBBS AI, మీ ఆరోగ్య మరియు శ్రేయస్సు సలహాదారుని. ఈ రోజు నేను మీకు ఎలా సహాయపడగలను? దయచేసి గుర్తుంచుకోండి, నేను ఒక AI ని, నిజమైన వైద్యుడిని కాదు.\n\n*పూర్తి నిరాకరణ A: ఆరోగ్య సలహా*\n*స్నేహపూర్వక MBBS AI* అందించిన కంటెంట్ సాధారణ జ్ఞానం, సమాచారం మరియు విద్యా ప్రయోజనాల కోసం మాత్రమే. ఇది వైద్య సలహా కాదు. *వ్యక్తిగత నిర్ధారణ మరియు చికిత్స కోసం ఎల్లప్పుడూ లైసెన్స్ పొందిన వైద్య నిపుణుడి మార్గదర్శకత్వం తీసుకోండి.*`
+  }
+};
+
+const getSystemInstructions = (lang: 'en' | 'te') => {
+    const langName = lang === 'en' ? 'English' : 'Telugu';
+    return `${SYSTEM_INSTRUCTIONS}\n\nYou MUST respond in the language the user has selected. The current language is: ${langName}.`;
+}
+
 const App: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      sender: 'ai',
-      text: `[Wellness Guide]\n\nHello! I am Friendly MBBS AI, your health and wellness advisor. How can I assist you today? Please remember, I am an AI and not a real doctor.\n\n*Full Disclaimer A: WELLNESS ADVISORY*\nThe content provided by *Friendly MBBS AI* is for general knowledge, informational, and educational purposes only. It is not medical advice. *Always seek the guidance of a licensed medical professional for personalized diagnosis and treatment.*`
-    }
-  ]);
+  const [language, setLanguage] = useState<'en' | 'te'>('en');
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const chatWindowRef = useRef<HTMLDivElement>(null);
   const chatRef = useRef<any>(null); // To hold the chat instance
+
+  useEffect(() => {
+    setMessages([{
+      sender: 'ai',
+      text: translations[language].initialMessage
+    }]);
+    chatRef.current = null; // Reset chat on language change
+  }, [language]);
 
 
   useEffect(() => {
@@ -92,7 +122,7 @@ const App: React.FC = () => {
       chatRef.current = ai.chats.create({
         model: 'gemini-2.5-flash',
         config: {
-          systemInstruction: SYSTEM_INSTRUCTIONS,
+          systemInstruction: getSystemInstructions(language),
         },
       });
     }
@@ -154,12 +184,19 @@ const App: React.FC = () => {
       handleSend();
     }
   };
+  
+  const currentLang = translations[language];
 
   return (
     <div className="app-container">
       <header>
-        <h1>Friendly MBBS AI</h1>
-        <p className="creator">A Chaithanya Renigunta Creation</p>
+        <div className="header-content">
+          <h1>{currentLang.title}</h1>
+          <p className="creator">{currentLang.creator}</p>
+        </div>
+        <button onClick={() => setLanguage(language === 'en' ? 'te' : 'en')} className="lang-toggle">
+          {language === 'en' ? 'తెలుగు' : 'English'}
+        </button>
       </header>
       <div className="chat-window" ref={chatWindowRef}>
         {messages.map((msg, index) => (
@@ -178,20 +215,20 @@ const App: React.FC = () => {
         )}
       </div>
       <div className="input-area">
-        <button className="icon-button" disabled={isLoading} title="Attach file (coming soon)">
+        <button className="icon-button" disabled={isLoading} title={currentLang.attachTitle}>
             <span className="material-symbols-outlined">attach_file</span>
         </button>
-        <button className="icon-button" disabled={isLoading} title="Use camera (coming soon)">
+        <button className="icon-button" disabled={isLoading} title={currentLang.cameraTitle}>
             <span className="material-symbols-outlined">photo_camera</span>
         </button>
-        <button className="icon-button" disabled={isLoading} title="Use microphone (coming soon)">
+        <button className="icon-button" disabled={isLoading} title={currentLang.micTitle}>
             <span className="material-symbols-outlined">mic</span>
         </button>
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="Ask me a health-related question..."
+          placeholder={currentLang.placeholder}
           rows={1}
           disabled={isLoading}
         />
